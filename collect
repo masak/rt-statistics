@@ -21,8 +21,6 @@ my $find_events = scraper {
     };
 };
 
-my $PAGES = 43; # this constant needs constant updating
-
 $|++;
 my %tickets;
 my $page = 1;
