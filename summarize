@@ -1,0 +1,80 @@
+#!/opt/perl/bin/perl -w
+use 5.010;
+use strict;
+
+use YAML;
+
+my %known_aliases = (
+    'mlenz@physik.uni-wuerzburg.de' => 'moritz',
+    'pawel.pabian@implix.com' => 'bbkr',
+);
+
+sub find_person {
+    my ($person) = @_;
+    if ($known_aliases{$person}) {
+        $person = $known_aliases{$person};
+    }
+    elsif ($person =~ /^ (.*?) @/x) {
+        $person = $1;
+    }
+    $person
+}
+
+open my $TICKETS, '<', 'tickets.yaml';
+my $content = join '', <$TICKETS>;
+
+my $tickets = Load($content);
+
+my $total = keys %$tickets;
+
+my %n_plicates;
+my %submitters;
+my %closers;
+for my $id (keys %$tickets) {
+    my @events = @{ $tickets->{$id} };
+    shift @events;
+    my $n = 0;
+    for my $event (@events) {
+        my $description = $event->{'description'};
+        next unless $description;
+        if ($description =~ /^ \s* (\S+) .*? Ticket \s+ created \s* $/x) {
+            ++$n;
+            my $person = find_person($1);
+            ++$submitters{$person};
+        }
+        elsif ($description =~ /^ \s* (\S+) .*? to \s+ '(\w+)' \s* $/x) {
+            my $action = $2;
+            if ($action eq 'resolved') {
+                my $person = find_person($1);
+                ++$closers{$person};
+            }
+        }
+    }
+    ++$n_plicates{$n};
+}
+
+say "$total tickets in total";
+say "";
+
+my $s_total = 0;
+for my $n (sort keys %n_plicates) {
+    $s_total += $n_plicates{$n} * $n;
+    next if $n == 1;
+    my $times = $n == 2 ? "twice" : $n == 3 ? "thrice" : "$n times";
+    my $s = $n_plicates{$n} == 1 ? " was" : "s were";
+    say $n_plicates{$n}, " ticket$s submitted $times";
+}
+say "";
+say "$s_total submissions in total";
+say "";
+
+say "Submitters:";
+for my $submitter ((sort { $submitters{$b} <=> $submitters{$a} } keys %submitters)[0..19]) {
+    say '  ', $submitter, ': ', $submitters{$submitter};
+}
+say "";
+
+say "Closers:";
+for my $closer ((sort { $closers{$b} <=> $closers{$a} } keys %closers)[0..19]) {
+    say '  ', $closer, ': ', $closers{$closer};
+}

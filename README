@@ -1,0 +1,7 @@
+Two scripts here:
+
+collect
+    Pulls down a ~5MB file with all tickets in the perl6 queue in RT.
+
+summarize
+    Reads the file and outputs statistics.

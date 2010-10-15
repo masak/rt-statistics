@@ -1,0 +1,50 @@
+#!/opt/perl/bin/perl -w
+use 5.010;
+use strict;
+
+use URI;
+use Web::Scraper;
+use YAML;
+
+binmode STDOUT, ":utf8";
+
+my $find_tickets = scraper {
+    process 'td:first-child>b>a[href]', 'tickets[]' => '@href';
+};
+
+my $find_events = scraper {
+    process 'h1', 'title' => 'TEXT';
+    process '.ticket-transaction', 'events[]' => scraper {
+        process 'td.date', 'date' => 'TEXT';
+        process 'td.description', 'description' => 'TEXT';
+        process 'div.messagebody', 'message' => 'TEXT';
+    };
+};
+
+my $PAGES = 43; # this constant needs constant updating
+
+$|++;
+my %tickets;
+my $page = 1;
+my $TICKETS_PER_PAGE = 50;
+while (1) {
+    printf "Page %2d ", $page;
+    sleep 5;
+    my $tickets = $find_tickets->scrape(URI->new(q[http://rt.perl.org/rt3/Public/Search/Simple.html?Query=Queue%20=%20'perl6'%20;Page=] . $page));
+    for my $uri (@{$tickets->{'tickets'}}) {
+        my $id = $uri->query();
+        $id =~ /^id=(\d+)$/ or die "Unrecognized id string $id";
+        $id = $1;
+        sleep 2;
+        my $events = $find_events->scrape(URI->new(q[http://rt.perl.org/rt3/Public/Bug/Display.html?id=] . $id));
+        unshift @{$events->{'events'}}, $events->{'title'};
+        $tickets{$id} = $events->{'events'};
+        print '.';
+    }
+    print "\n";
+    last if @{$tickets->{'tickets'}} < $TICKETS_PER_PAGE;
+    ++$page;
+}
+
+open my $TICKETS, '>', 'tickets.yaml' or die $!;
+print $TICKETS Dump(\%tickets);
