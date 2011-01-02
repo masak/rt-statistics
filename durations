@@ -1,0 +1,85 @@
+#!/opt/perl/bin/perl -w
+use 5.010;
+use strict;
+
+use YAML;
+
+my %known_aliases = (
+    'mlenz@physik.uni-wuerzburg.de' => 'moritz',
+    'pawel.pabian@implix.com' => 'bbkr',
+);
+
+sub find_person {
+    my ($person) = @_;
+    if ($known_aliases{$person}) {
+        $person = $known_aliases{$person};
+    }
+    elsif ($person =~ /^ (.*?) @/x) {
+        $person = $1;
+    }
+    $person
+}
+
+open my $TICKETS, '<', 'tickets.yaml';
+my $content = join '', <$TICKETS>;
+
+my $tickets = Load($content);
+my $mytickets;
+my $myclosed;
+
+my @MONTHS = <Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec>;
+my %month_to_index = map { $MONTHS[$_] => sprintf '%02d', $_ + 1 } 0..11;
+
+sub isodate {
+    my ($date) = @_;
+
+    return $date; # XXX
+
+    die "!$date!", ord(substr($date, 3))
+        unless $date =~ /^....(...).(\d\d).(\d\d:\d\d:\d\d).(\d\d\d\d)$/;
+    die "succeeded";
+
+    my $year = $4;
+    my $month = $month_to_index{$1};
+    my $day = $2;
+    my $time = $3;
+
+    "$year-$month-$day" . "T$time" . "Z";
+}
+
+for my $id (keys %$tickets) {
+    my @events = @{ $tickets->{$id} };
+    shift @events;
+    my $firstsubmitted;
+    my $lastclosed;
+    my $interested;
+    for my $event (@events) {
+        my $description = $event->{'description'};
+        next unless $description;
+        if ($description =~ /^ \s* (\S+) .*? Ticket \s+ created \s* $/x) {
+            my $person = find_person($1);
+            $firstsubmitted //= $event->{'date'};
+            if ($person eq 'masak') {
+                ++$interested;
+            }
+        }
+        elsif ($description =~ /^ \s* (\S+) .*? to \s+ '(\w+)' \s* $/x) {
+            my $action = $2;
+            if ($action eq 'resolved') {
+                $lastclosed = $event->{'date'};
+            }
+        }
+    }
+    ++$mytickets if $interested;
+    if ($interested && defined $lastclosed) {
+#        say sprintf "%s %s %s", $id,
+#                                isodate($firstsubmitted),
+#                                isodate($lastclosed);
+        print $mytickets, " ";
+        ++$myclosed;
+    }
+}
+
+say ""; say "";
+say "$mytickets tickets submitted by masak";
+say "$myclosed masak tickets closed";
