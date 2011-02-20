@@ -4,4 +4,7 @@ collect
     Pulls down a ~5MB file with all tickets in the perl6 queue in RT.
 
 summarize
-    Reads the file and outputs statistics.
+    Reads the file and outputs statistics about submitters and closers.
+
+durations
+    Reads the file and outputs info about how long tickets were open.
